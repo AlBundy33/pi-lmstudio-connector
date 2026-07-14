@@ -38,6 +38,64 @@ Example Configuration:
 ### Setup
 Ensure that your **LM Studio** instance has the "Local Server" enabled and is reachable from the host running this provider.
 
+### LM Studio CLI Commands
+
+**Start server (for remote access):**
+```bash
+lms server start --bind 0.0.0.0 --cors
+```
+
+**Load a model with GPU offload and context length:**
+```bash
+lms load <model_key> --gpu max --context-length 49152
+```
+
+Context length reference:
+| Value | Tokens |
+|-------|--------|
+| 4k | 4096 |
+| 8k | 8192 |
+| 16k | 16384 |
+| 32k | 32768 |
+| 48k | 49152 |
+| 64k | 65536 |
+| 128k | 131072 |
+| 256k | 262144 |
+
+Other useful commands:
+- `lms get <model>` — Download a model
+- `lms ls` — List downloaded models
+- `lms ps` — List loaded models
+- `lms unload --all` — Unload all models
+
+### Authentication (optional)
+
+To enable authentication for the API server:
+1. Open LM Studio GUI
+2. Go to Developer → Server Settings
+3. Enable "Require Authentication"
+4. Create an API token under "Manage Tokens"
+
+The token is passed as `Authorization: Bearer <token>` in API requests.
+
+> **Note:** Authentication cannot be enabled via CLI. Use the GUI instead.
+
+### Complete Example
+
+```bash
+# 1. Start server for remote access
+lms server start --bind 0.0.0.0 --cors
+
+# 2. Download a model
+lms get google/gemma-4-e4b
+
+# 3. Load the model with 48k context
+lms load google/gemma-4-e4b --gpu max --context-length 49152
+
+# 4. Verify loaded models
+lms ps
+```
+
 ### Usage
 1. Configure your connection details in `~/.pi/agent/lmstudio-connector.json`.
 2. Start the provider to begin the automatic synchronization of models into the system.
