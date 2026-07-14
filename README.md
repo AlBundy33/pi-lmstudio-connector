@@ -16,7 +16,7 @@ Currently, models must be manually entered into a local `models.json` file to be
 ## 🛠 Configuration
 The configuration is handled via a JSON file which defines the connection details for your LM Studio instance(s).
 
-**Configuration Path:** `~/.pi/agent/lmstudio-connector.json` (or as defined in your environment)
+**Configuration Path:** `~/.pi/agent/lmstudio-connector.json`
 
 Example Configuration:
 ```json
@@ -39,7 +39,7 @@ Example Configuration:
 Ensure that your **LM Studio** instance has the "Local Server" enabled and is reachable from the host running this provider.
 
 ### Usage
-1. Configure your connection details in `lmstudio-connector.json`.
+1. Configure your connection details in `~/.pi/agent/lmstudio-connector.json`.
 2. Start the provider to begin the automatic synchronization of models into the system.
 
 ## 📜 License
