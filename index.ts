@@ -1,0 +1,156 @@
+import type { ExtensionAPI, ProviderModelConfig } from "@mariozechner/pi-coding-agent";
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+const CONFIG_PATH = path.join(os.homedir(), ".pi", "agent", "lmstudio-connector.json");
+const DEFAULT_LM_STUDIO_URL = "http://127.0.0.1:1234";
+
+interface ProviderConfigEntry {
+  name?: string;
+  url: string;
+  api_key?: string;
+}
+
+type Config = ProviderConfigEntry[];
+
+function resolveValue(value: string): string {
+  if (value.startsWith('$')) {
+    const envKey = value.slice(1);
+    return process.env[envKey] ?? value;
+  }
+  return value;
+}
+
+function getConfig(): Config {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+      if (Array.isArray(raw)) return raw;
+      // legacy: single object -> convert
+      const entry: ProviderConfigEntry = { url: raw.url, api_key: raw.api_key };
+      return [entry];
+    }
+  } catch (error) {
+    console.error(`Failed to read LM Studio config at ${CONFIG_PATH}:`, error);
+  }
+  return [{ url: DEFAULT_LM_STUDIO_URL }];
+}
+
+interface LMStudioLoadedInstance {
+  id: string;
+  config: {
+    context_length: number;
+    eval_batch_size: number;
+    flash_attention: boolean;
+    num_experts: number;
+    offload_kv_cache_to_gpu: boolean;
+  }
+}
+
+interface LMStudioModel {
+  type: string;
+  publisher: string;
+  key: string;
+  display_name: string;
+  architecture?: string;
+  quantization?: { name: string; bits_per_weight: number };
+  size_bytes: number;
+  params_string: string | null;
+  loaded_instances: LMStudioLoadedInstance[];
+  max_context_length: number;
+  format: string;
+  capabilities?: {
+    vision?: boolean;
+    trained_for_tool_use?: boolean;
+    reasoning?: { allowed_options: string[]; default: string };
+  };
+  description?: string | null;
+  variants: string[];
+  selected_variant: string;
+}
+
+interface LMStudioResponse {
+  models: LMStudioModel[];
+}
+
+/**
+ * Helper to map LMStudioModel to Pi's model format
+ */
+function mapModels(models: LMStudioModel[]): ProviderModelConfig[] {
+  return models.map(m => ({
+    id: m.key,
+    name: m.display_name,
+    reasoning: m.capabilities?.reasoning !== undefined,
+    provider: "lmstudio",
+    input: m.capabilities?.vision ? ["text", "image"] : ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: m.loaded_instances[0]?.config.context_length ?? m.max_context_length,
+    maxTokens: m.max_context_length,
+  }));
+}
+
+/**
+ * Fetch models from LM Studio endpoint
+ */
+async function fetchModels(baseUrl: string, apiKey: string): Promise<ProviderModelConfig[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  const headers: HeadersInit = {};
+  if (apiKey && apiKey !== "lmstudio") {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/models`, { 
+      signal: controller.signal,
+      headers
+    });
+    if (!response.ok) throw new Error(`LM Studio HTTP status: ${response.status}`);
+
+    const data: LMStudioResponse = await response.json();
+    return mapModels((data.models || []).filter(m => m.type === "llm"));
+  } catch (error: any) {
+    if (error.name === 'AbortError') throw new Error("LM Studio request timed out");
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function providerName(entry: ProviderConfigEntry): string {
+  return entry.name ?? entry.url;
+}
+
+function registerProviders(pi: ExtensionAPI, config: Config): Promise<void> {
+  return Promise.all(config.map(async (entry, i) => {
+    const url = resolveValue(entry.url);
+    const apiKey = resolveValue(entry.api_key ?? "lmstudio");
+    const name = providerName(entry);
+    pi.registerProvider(name, {
+      baseUrl: `${url}/v1/`,
+      api: "openai-completions",
+      apiKey,
+      models: await fetchModels(url, apiKey).catch(() => [])
+    });
+  })).then(() => {});
+}
+
+export default async function (pi: ExtensionAPI) {
+  const config = getConfig();
+  await registerProviders(pi, config);
+
+  let fetchedThisCycle = false;
+
+  pi.on("agent_start", async () => {
+    fetchedThisCycle = false;
+  });
+
+  pi.on("message_end", async (event, _ctx) => {
+    if (event.message.role === "assistant" && !fetchedThisCycle) {
+      fetchedThisCycle = true;
+      await registerProviders(pi, getConfig());
+    }
+  });
+}

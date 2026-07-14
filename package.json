@@ -1,0 +1,7 @@
+{
+  "name": "lm-studio-extension",
+  "version": "1.0.0",
+  "description": "Adds LM Studio models to Pi",
+  "main": "index.ts",
+  "type": "module"
+}
