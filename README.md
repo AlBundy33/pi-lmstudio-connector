@@ -1,6 +1,6 @@
 # LM Studio Provider
 
-A specialized provider for the **Pi Codng Agent** that automates model discovery and registration from one or more LM Studio instances.
+A specialized provider for the **Pi Coding Agent** that automates model discovery and registration from one or more LM Studio instances.
 
 ## 🎯 Purpose
 Currently, models must be manually entered into a local `models.json` file to be usable by "pi". This project eliminates this manual step by providing an automated bridge:
@@ -20,19 +20,17 @@ The configuration is handled via a JSON file which defines the connection detail
 
 Example Configuration:
 ```json
-{
-  "instances": [
-    {
-      "url": "http://my-ai-server:1234",
-      "name": "lm-studio-erver",
-      "apiKey": "some-api-key-12345"
-    },
-    {
-      "url": "http://localhost:1234",
-      "name": "local-lm-studio"
-    }
-  ]
-}
+[
+  {
+    "url": "http://my-ai-server:1234",
+    "name": "lm-studio-server",
+    "api_key": "some-api-key-12345"
+  },
+  {
+    "url": "http://localhost:1234",
+    "name": "local-lm-studio"
+  }
+]
 ```
 
 ## 🚀 Getting Started
@@ -46,3 +44,6 @@ Ensure that your **LM Studio** instance has the "Local Server" enabled and is re
 
 ## 📜 License
 This project is licensed under the [MIT License](LICENSE).
+
+## 🤖 Development Note
+This provider was created using AI-assisted coding. The implementation was carried out by [Pi](https://pi.dev) and [OpenCode](https://opencode.ai) based on the requirements described above.
